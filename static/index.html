@@ -628,7 +628,6 @@
                     isRecording = true;
                     recordButton.classList.add('recording');
                     recordText.textContent = 'Stop';
-                    showSuccess('Recording started... Click again to stop.');
                 } catch (error) {
                     console.error('Recording error:', error);
                     showError('Failed to access microphone. Please ensure microphone permissions are granted.');
@@ -690,7 +689,6 @@
                 if (ongoingTranscription === controller) {
                     output.textContent = result.text || 'No transcription available';
                     document.getElementById('copyButton').disabled = false;
-                    showSuccess('Transcription completed successfully!');
                 }
 
             } catch (error) {
