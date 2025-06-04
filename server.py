@@ -6,7 +6,7 @@ import torch
 import nemo.collections.asr as nemo_asr
 from typing import Optional, AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, Header, File, Form
 from fastapi.responses import JSONResponse
 
 model = None
@@ -56,23 +56,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(lifespan=lifespan)
 
+from fastapi import Request
+
 
 @app.post("/v1/audio/transcriptions")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    model: str = Form("chatterbox"),
+    language: Optional[str] = Form(None),
+    prompt: Optional[str] = Form(None),
+    authorization: Optional[str] = Header(None),
+):
     """OpenAI API compatible endpoint for speech-to-text transcription."""
     global last_access_time
 
     # Validate file presence and type
     if not file.filename:
         raise HTTPException(status_code=400, detail="No selected file")
-
-    # Validate content type
-    content_type = file.content_type
-    if not content_type or not content_type.startswith("audio/"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type: {content_type}. Please upload an audio file.",
-        )
 
     # Check file size (50MB limit)
     MAX_SIZE = 50 * 1024 * 1024  # 50MB
@@ -97,10 +97,9 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
     temp_audio_path: Optional[str] = None
     try:
-        # Save the uploaded audio to a temporary file
         with tempfile.NamedTemporaryFile(
             delete=False,
-            suffix=f".{content_type.split('/')[-1]}",  # Use proper extension
+            suffix=f".{file.filename.split('.')[-1]}",
         ) as temp_audio_file:
             temp_audio_file.write(contents)
             temp_audio_path = temp_audio_file.name
