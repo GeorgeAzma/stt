@@ -6,22 +6,23 @@ import torch
 import nemo.collections.asr as nemo_asr
 from typing import Optional, AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, HTTPException, Header, File, Form
+from fastapi import FastAPI, UploadFile, HTTPException, Header, File, Form, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 model = None
 last_access_time: float = 0.0
 MODEL_UNLOAD_TIMEOUT_SECONDS = 5 * 60  # 5 minutes of inactivity
 
 
-async def get_nemo_model():
-    global nemo_asr_module, model, last_access_time
+async def get_model():
+    global model, last_access_time
     if model is None:
-        print("Loading NeMo ASR model...")
+        print("Loading ASR model...")
         model = nemo_asr.models.ASRModel.from_pretrained(
-            model_name="nvidia/parakeet-tdt-0.6b-v2"
+            model_name="nvidia/parakeet-tdt-0.6b-v3"
         )
-        print("NeMo ASR model loaded.")
+        print("ASR model loaded.")
     last_access_time = time.time()
     return model
 
@@ -56,13 +57,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(lifespan=lifespan)
 
-from fastapi import Request
-
-
 @app.post("/v1/audio/transcriptions")
 async def transcribe_audio(
     file: UploadFile = File(...),
-    model: str = Form("chatterbox"),
+    model: str = Form("parakeet-tdt-0.6b-v3"),
     language: Optional[str] = Form(None),
     prompt: Optional[str] = Form(None),
     authorization: Optional[str] = Header(None),
@@ -105,7 +103,7 @@ async def transcribe_audio(
             temp_audio_path = temp_audio_file.name
 
         try:
-            model = await asyncio.wait_for(get_nemo_model(), timeout=30.0)
+            model = await asyncio.wait_for(get_model(), timeout=30.0)
         except asyncio.TimeoutError:
             raise HTTPException(
                 status_code=503,
@@ -183,9 +181,6 @@ async def unload_model():
         return {"message": "Model unloaded and CUDA memory cleared successfully."}
     else:
         return {"message": "Model is already unloaded."}
-
-
-from fastapi.staticfiles import StaticFiles
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
