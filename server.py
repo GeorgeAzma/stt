@@ -127,6 +127,7 @@ async def transcribe_audio(
 
         if transcriptions:
             transcription_text = transcriptions[0].text
+            print(f"Transcribed: {transcription_text}")
             return JSONResponse({"text": transcription_text})
         else:
             return JSONResponse(
